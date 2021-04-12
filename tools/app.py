@@ -256,9 +256,9 @@ class SP:
 
 
     def DQSIZE(rhf=3.25,H0=5.0,mode='衡重式挡墙'):
-        global RES        
+        global res        
         h0=round(H0,2)
-        file=open(RES+'\\RMC\\'+'DQ_size', "r+",encoding='UTF-8')
+        file=open(res+'\\'+'DQ_size', "r+",encoding='UTF-8')
         dq={}
         for h in file:
             dq=eval(h)
@@ -306,35 +306,37 @@ class SP:
     def DQ_PJ(zh,rw,LJ,data=[]):
         global res
 
-        def getdq(dq):            
-            return ((data[0] in dq) and (zh>dq[0] and zh<dq[1]))
-        file=open(res+'DQ_shoufang', "r+",encoding='UTF-8')
+        def getdq(dq):
+            
+            return ((data[1] in dq) and (zh>dq[0] and zh<dq[1]))
+        file=open(res+'\\DQ_shoufang', "r+",encoding='UTF-8')
 
         dqs=[]
         for d in file:
-            dqs=eval(d)        
-        chicun=list(filter(getdq,dqs))        
-        if chicun==[]:
-            return None        
-        H=chicun[0][5]
-        rh=abs(CeLiang.CeLiang(res,zh,rw).side(data[0])[1])
+            dqs=eval(d)
         
-        PJ= SP.DQSIZE(-rh,H,data[1])[data[2]]
+        chicun=list(filter(getdq,dqs))
+       
+        if chicun==[]:
+            return None
+        
+        H=chicun[0][5]
+        print(H)
+        rh=abs(CeLiang.CeLiang(res,zh,rw).side(data[1])[1])
+        print(rh)
+        PJ= SP.DQSIZE(rh,H,data[2])[data[3]]
 
-        pianju= [[zh,i] for i in PJ] if data[0]=='右侧' else [[zh,-i] for i in PJ]
+        pianju= [[zh,i] for i in PJ] if data[1]=='右侧' else [[zh,-i] for i in PJ]
         return pianju
         
 
 
     #圆管涵
     #data=[reHigh,d]
-    def YGH(zh,rw,LJ,data=[]):
+    def HD(zh,rw,LJ,data=[]):
         pass
 
-    #盖板涵
-    #data=[reHigh,L,H]
-    def GBH(zh,rw,LJ,data=[]):
-        pass
+
 
 
     #土方路基
@@ -343,8 +345,8 @@ class SP:
     def TF(zh,rw,LJ,data=[]):
         global res
         wide=CeLiang.CeLiang(res,zh,rw).widen
-        ex=data[0]*1.5
-        return [[zh,wide[0]-ex],[zh,0],[zh,wide[1]+ex]]
+        ex=-data[0]*1.5
+        return [[zh,round(wide[0]-ex,3)],[zh,0],[zh,round(wide[1]+ex,3)]]
 
     # zh 桩号，rw 道路宽度，LJ 路肩宽度，SIDE 路肩位置。
     #data=[reHigh,SIDE]
@@ -374,6 +376,14 @@ class SP:
             ex1=-0.25 if data[0]=='右侧' else 0.25
             ex2= 0.75 if data[0]=='右侧' else -0.75
             return [[zh,round(Half-ex1,3)],[zh,round(Half+ex2,3)]]
+    # zh 桩号，rw 道路宽度，LJ 路肩宽度
+    #data=[reHigh]
+    def JPSS(zh,rw,LJ,data=[]):
+        global res
+        wide=CeLiang.CeLiang(res,zh,rw).widen
+        return [[zh,round(wide[0]+LJ,3)],[zh,0],[zh,round(wide[1]-LJ,3)]]
+
+
 
     # zh 桩号，rw 道路宽度，LJ 路肩宽度
     #data=[reHigh]
@@ -575,7 +585,7 @@ class APP:
     global resources
     Page=None
     HOME=False
-    ENGS={'土方路基':'TF','圆管涵':'GBH','盖板涵':'GBH','衡重式挡墙':'DQ_PJ','仰斜式挡墙':'DQ_PJ','路堑墙':'DQ_PJ','护肩墙':'DQ_PJ','Ⅰ型浆砌片石边沟':'BG','Ⅱ型浆砌片石边沟':'BG','Ⅲ型浆砌片石边沟':'BG','Ⅳ型浆砌片石边沟':'BG','路肩':'LJ','级配碎石垫层':'JPSS','水稳':'SWC','其他':'Other'}
+    ENGS={'土方路基':'TF','圆管涵':'HD','盖板涵':'HD','衡重式挡墙':'DQ_PJ','仰斜式挡墙':'DQ_PJ','路堑墙':'DQ_PJ','护肩墙':'DQ_PJ','Ⅰ型浆砌片石边沟':'BG','Ⅱ型浆砌片石边沟':'BG','Ⅲ型浆砌片石边沟':'BG','Ⅳ型浆砌片石边沟':'BG','路肩':'LJ','级配碎石垫层':'JPSS','水稳':'SWC','其他':'Other'}
     resources={'会东县人民村通村公路工程':'RMC','会东县营盘村通村公路工程':'YPC','会东县县道XW20线姜香路姜州至龙树段升级改造工程':'JXL','会东县县道XW21线新会路新街至铅锌镇段升级改造工程':'XHL','会东县县道XW22线会淌路升级改造工程':'HTL'}
     #########初始化###################################
     def __init__(self):
@@ -686,19 +696,11 @@ class APP:
             res=RES+'\\'+resources[project.get()]
         else:
             res=None
-        self.Home()
-
-        
-
-    def Deal(self,event):
+        self.Home()        
+    def Deal(self):
         global engineering
         obj=SP
         self.fun=getattr(obj,self.ENGS[engineering.get()])
-
-
-
-
-
     ########清除###########################################
     def Clear(self,Page:PanedWindow):
         
@@ -778,7 +780,6 @@ class APP:
 
             Page.add(Button(text='提交',command=deal))
             HOME=True
-
     def replace_SP(self):
         global values
         global PATH
@@ -811,8 +812,7 @@ class APP:
             messagebox.showerror('错误', err)
 
         else:
-            messagebox.showinfo('信息', '成功')
-            
+            messagebox.showinfo('信息', '成功')            
     #########普通批量 替换###########################################
     def view_Normal(self):
         global Page
@@ -942,7 +942,6 @@ class APP:
         Page.add(opt2)
         opt_md=PanedWindow(height=30)
         Page.add(opt_md)
-
     def getFiles(self,top,path):
         global tree
         global show_data
@@ -1012,7 +1011,6 @@ class APP:
                         tree.insert(f'ID{i}','end',f'print{i}.{j}',values=(f'{path.get()}\\{filename}',file))
                         j=j+1
                     i=i+1            
-
     def PRINT(self,num,sl):
         global tree
         global mode
@@ -1044,105 +1042,127 @@ class APP:
         else:
             messagebox.showinfo('信息','打印结束')
 
+    ###########平面位置###################################################
+    def View(self,title,JC,tb_hd,font,rowHigh,cmd):
+        global project
+        global Page
+        global engineering
+        global side
+        global show_md
+        global Pane_mod
+        global tree
+        global JianCe
+        JianCe=JC
+        show_md=False
+        Pane1=PanedWindow(height=rowHigh*2)
+        Pane1.add(Label(text=title,font=font))
+        Page.add(Pane1)
+        Pane2=PanedWindow(height=rowHigh)
+        Pane2.add(Label(text='工程项目名称'))
+        Pane2.add(Entry(textvariable=project,width=40))
+        Pane2.add(Label(text='工程名称'))
+        LIST=list(self.ENGS.keys())
+        LIST.insert(0,'选择')
+        engineering=StringVar()
+        pulldown=ttk.Combobox(values=LIST,textvariable=engineering)
+        pulldown.current(0)
+        pulldown['state']='readonly'
+        Pane2.add(pulldown)
+        Page.add(Pane2)
+
+
+
+        Pane3=PanedWindow(height=rowHigh)
+        Pane3.add(Label(text='工程部位'))
+
+        ZH1=DoubleVar()
+        ZH2=DoubleVar()
+        Ping=IntVar()
+        RW=DoubleVar()
+        LJ=DoubleVar()
+        side=StringVar()
+        high=DoubleVar()
+        RW.set(6.5)
+        LJ.set(0.25)
+
+        Pane3.add(Entry(textvariable=ZH1))
+        Pane3.add(Label(text='--'))
+        Pane3.add(Entry(textvariable=ZH2))
+
+        Pane3.add(Label(text='相对高度：'))
+        Pane3.add(Entry(textvariable=high))        
+        self.show_side=False
+        Page.add(Pane3)
+        def showSide(event):
+            global side
+            if pulldown.get() in list(self.ENGS.keys())[3:11]:  
+                if self.show_side==False:
+                    
+                    print(pulldown.get())
+                    R=Radiobutton(text='左侧',variable=side,value='左侧')
+                    L=Radiobutton(text='右侧',variable=side,value='右侧')
+                    Pane3.add(L)
+                    Pane3.add(R)
+                    pulldown['state']='readonly'
+                    self.show_side=True
+            elif pulldown.get() in list(self.ENGS.keys())[-1]:
+                pulldown['state']=''
+                side.set('')
+            else:
+                side.set('')
+                for i in Pane3.panes():
+                    if 'radiobutton' in i.string:
+                        Pane3.forget(i)
+                self.show_side=False
+            messagebox.showinfo('信息',f'你选择了：{pulldown.get()}')
+
+        pulldown.bind("<<ComboboxSelected>>",showSide)        
+
+        Pane4=PanedWindow(height=rowHigh)
+        Pane4.add(Label(text='工序'))
+        gongxu=ttk.Combobox(values=['基坑开挖前','基坑开挖后','基坑底','基层顶','墙身顶','回填第i层'])
+        Pane4.add(gongxu)
+        Pane4.add(Label(text='检测频率'))
+        Pane4.add(Entry(textvariable=Ping))
+        Pane4.add(Label(text='路面宽度'))
+        Pane4.add(Entry(textvariable=RW))
+        Pane4.add(Label(text='路肩宽度'))
+        Pane4.add(Entry(textvariable=LJ))
+        Page.add(Pane4)
+        Pane5=PanedWindow(height=rowHigh)
+        Pane5.add(Button(text='自动获取',width=30,command=lambda:self.Tree(Pane_data,tb_hd,ZH1,ZH2,side,Ping,RW,LJ,high,pulldown,gongxu)))
+        Pane5.add(Button(text='修改计算',width=30,command=lambda:self.calculate(tree,high,RW)))
+        Page.add(Pane5)
+        Page.add(Label(text='++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++'))
+        Pane_mod=PanedWindow(height=rowHigh)
+        Page.add(Pane_mod)
+        Pane_data=PanedWindow(height=350)
+        Page.add(Pane_data)
+        Pane_save=PanedWindow()
+        Pane_save.add(Label(text='保存位置：'))
+        PATH=StringVar()
+        Pane_save.add(Entry(textvariable=PATH,width=30))
+        Pane_save.add(Button(text='保存(SAVE)',command=lambda:cmd(tree,project,pulldown,ZH1,ZH2,side,gongxu,PATH)))
+
+        Page.add(Pane_save)
+        pass
+
     ###########高程####################################################
     def HeightCheck(self):
         global Page
-        global showpan
-        global opt_md
-        global show_md
         global JianCe
-        global tree
-        global RW
-
-        
-
-        if project.get()=='' or engineering.get()=='':
-            messagebox.showwarning('提示','请先设置！！！')
-            return self.Home()
-
         self.Clear(Page)
-        JianCe='高程检测'
-        tree=None
+        JianCe='pmwz'
 
-        Page.add(Label(text='高程检测工具',font=('仿宋 22')))
-        opt1=PanedWindow()
-        opt1.add(Label(text='项目名称：'))
-        pro=None
-        if project.get()=='other':
-            pro=Entry(textvariable=project)
-        else:
-            pro=Entry(textvariable=project,state='disabled')
-        opt1.add(pro)
-        Page.add(opt1)
-
-        opt1_1=PanedWindow()
-        opt1_1.add(Label(text='  检测频率(m)：'))
-        ping=IntVar()
-        ping.set(100)
-        opt1_1.add(Entry(textvariable=ping))
-        opt1_1.add(Label(text='  路肩宽度(m)：'))
-        LJ=DoubleVar()
-        LJ.set('0.25')
-        opt1_1.add(Entry(textvariable=LJ))
-        opt1_1.add(Label(text='  路面宽度(m)：'))
-        RW=DoubleVar()
-        RW.set('6.5')
-        opt1_1.add(Entry(textvariable=RW))
-
-        Page.add(opt1_1)
-
-        opt2=PanedWindow()
-        opt2.add(Label(text='工程名称：'))
-        opt2.add(Entry(textvariable=engineering))
-        opt2.add(Label(text='工程部位：'))
-        zh1=DoubleVar()
-        opt2.add(Entry(textvariable=zh1))
-        opt2.add(Label(text='-'))
-        zh2=DoubleVar()
-        opt2.add(Entry(textvariable=zh2))
-        opt2.add(Label(text='工序'))
-        gongxu=StringVar()
-        opt2.add(Entry(textvariable=gongxu))
-        Page.add(opt2)
+        self.View('高程检测','高程检测',['桩号','偏距','X','Y'],('仿宋',20),25,self.gaochengDeal)
 
 
-        PATH=StringVar()
-        ReHigh=DoubleVar()
-        ReHigh.set(-0.575)
-        showpan=None
-
-        opt3=PanedWindow()
-        SIDE=None
-        TP=None
-        if engineering.get() in ['仰斜式挡墙','衡重式挡墙','路堑墙','护肩墙','浆砌片石边沟','路肩']:
-            SIDE=StringVar()
-            SIDE.set('左侧')
-            opt3.add(Radiobutton(text='左侧',variable=SIDE,value='左侧'))
-            opt3.add(Radiobutton(text='右侧',variable=SIDE,value='右侧'))
-        opt3.add(Label(text='相对设计路面高度：'))
-        opt3.add(Entry(textvariable=ReHigh))
-        opt_data=None                                          #top,header,zh1,zh2,plv,LJ,ReH,SIDE,TP
-        opt3.add(Button(text='数据输入',command=lambda:self.Tree(opt_data,['桩号','偏距','设计高程'],zh1,zh2,ping,LJ,ReHigh,SIDE,TP)))
-        opt3.add(Button(text='重新计算',command=lambda:self.calculate(tree,ReHigh)))
-        Page.add(opt3)
-        opt_md=PanedWindow(height=30)
-        Page.add(opt_md)
-        opt_data=PanedWindow(height=200)
-        Page.add(opt_data)
-        opt_sa=PanedWindow()
-        opt_sa.add(Label(text='保存位置：'))
-
-        opt_sa.add(Entry(textvariable=PATH))
-        Page.add(opt_sa)
-        Page.add(Button(text='提交',command=lambda:self.gaochengDeal(tree,project,engineering,zh1,zh2,gongxu,PATH)))
-        show_md=False
-
-    def gaochengDeal(self,tree,project,engineering,zh1,zh2,gongxu,PATH):
+    def gaochengDeal(self,tree,project,side,engineering,zh1,zh2,gongxu,PATH):
 
         try:
             ZH1=round(float(zh1.get()),3)
             ZH2=round(float(zh2.get()),3)
-            path=f'{PATH.get()}\\{engineering.get()}\\{SP.mileageToStr(ZH1)}-{SP.mileageToStr(ZH2)}{gongxu.get()}'
+            path=f'{PATH.get()}\\{engineering.get()}\\{SP.mileageToStr(ZH1)}-{SP.mileageToStr(ZH2)}{side.get()}{gongxu.get()}'
             if os.path.isdir(path):
                 pass
             else:
@@ -1193,7 +1213,7 @@ class APP:
                         zhq=zh        
                     data.append([f'{SP.mileageToStr(zh)},{pianju}','','',round(Hsx-round(HS+pc/1000,3),3),'',round(HS+pc/1000,3),HS,pc])
             print(path)
-            SP.write_gaocheng(project.get(),engineering.get(),f'{SP.mileageToStr(round(float(zh1.get()),3))}-{SP.mileageToStr(round(float(zh2.get()),3))}',gongxu.get(),data,path)
+            SP.write_gaocheng(project.get(),engineering.get(),f'{SP.mileageToStr(round(float(zh1.get()),3))}-{SP.mileageToStr(round(float(zh2.get()),3))}',f'({side.get()}){gongxu.get()}',data,path)
         
             
         except Exception as err:
@@ -1202,95 +1222,27 @@ class APP:
 
             messagebox.showinfo('信息', '成功')
             self.HeightCheck()
-    ###########平面位置###################################################
-
-
-    def View(self,title,font,rowHigh):
-        global project
-        global Page
-        Pane1=PanedWindow(height=rowHigh*2)
-        Pane1.add(Label(text=title,font=font))
-        Page.add(Pane1)
-        Pane2=PanedWindow(height=rowHigh)
-        Pane2.add(Label(text='工程项目名称'))
-        Pane2.add(Entry(textvariable=project,width=40))
-        Pane2.add(Label(text='工程名称'))
-        LIST=list(self.ENGS.keys())
-        LIST.insert(0,'选择')
-        ch_eng=ttk.Combobox(values=LIST)
-        ch_eng.current(0)
-        ch_eng['state']='readonly'
-        Pane2.add(ch_eng)
-        Page.add(Pane2)
-
-        Pane3=PanedWindow(height=rowHigh)
-        Pane3.add(Label(text='工程部位'))
-
-        Pane3.add(Entry())
-        Pane3.add(Label(text='--'))
-        Pane3.add(Entry())
-        self.show_side=False
-        side=None
-        Page.add(Pane3)
-        def showSide(event):
-            if ch_eng.get() in list(self.ENGS.keys())[3:11]:  
-                if self.show_side==False:
-                    side=StringVar()
-                    print(ch_eng.get())
-                    R=Radiobutton(text='左侧',variable=side,value='左侧')
-                    L=Radiobutton(text='右侧',variable=side,value='右侧')
-                    Pane3.add(L)
-                    Pane3.add(R)
-                    ch_eng['state']='readonly'
-                    self.show_side=True
-            elif ch_eng.get() in list(self.ENGS.keys())[-1]:
-                ch_eng['state']=''
-            else:
-                for i in Pane3.panes():
-                    if 'radiobutton' in i.string:
-                        Pane3.forget(i)
-                self.show_side=False
-            messagebox.showinfo('信息',f'你选择了：{ch_eng.get()}')
-
-        ch_eng.bind("<<ComboboxSelected>>",showSide)        
-
-        Pane4=PanedWindow(height=rowHigh)
-        Pane4.add(Label(text='工序'))
-        Pane4.add(ttk.Combobox(values=['基坑开挖前','基坑开挖后','基坑底','基层顶','墙身顶',]))
-        Pane4.add(Label(text='检测频率'))
-        Pane4.add(Entry())
-        Pane4.add(Label(text='路面宽度'))
-        Pane4.add(Entry())        
-        Page.add(Pane4)
-        Pane5=PanedWindow(height=rowHigh)
-        Pane5.add(Button(text='自动获取',width=30))
-        Pane5.add(Button(text='修改计算',width=30))
-        Page.add(Pane5)
-        Page.add(Label(text='++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++'))
-        Pane_mod=PanedWindow(height=rowHigh)
-        Page.add(Pane_mod)
-        Pane_data=PanedWindow(height=350)
-        Page.add(Pane_data)
-        pass
 
     def PMWZ_view(self):
         global Page
+        global JianCe
         self.Clear(Page)
+        JianCe='pmwz'
 
-        self.View('平面位置检测',('仿宋',20),25)
+        self.View('平面位置检测','平面位置检测',['桩号','偏距','X','Y'],('仿宋',20),25,self.pmwzDeal)
 
-    def pmwzDeal(self,tree,project,engineering,zh1,zh2,gongxu,PATH):
+    def pmwzDeal(self,tree,project,engineering,zh1,zh2,side,gongxu,PATH):
 
         try:
             ZH1=round(float(zh1.get()),3)
             ZH2=round(float(zh2.get()),3)
 
-            path=f'{PATH.get()}\\{engineering.get()}\\{SP.mileageToStr(ZH1)}-{SP.mileageToStr(ZH2)}{gongxu.get()}'
+            path=f'{PATH.get()}\\{engineering.get()}\\{SP.mileageToStr(ZH1)}-{SP.mileageToStr(ZH2)}({side.get()}){gongxu.get()}'
             if os.path.isdir(path):
                 pass
             else:
                 os.makedirs(path)
-
+            print(path)
             HEAD=None
             data=[]
             No=1
@@ -1310,9 +1262,9 @@ class APP:
                 if HEAD!=SP.HEADER(OPTION.getCtr(zh)):
 
                     if data!=[]:
-                        print(data)
+                        print('data',data)
 
-                        SP.write_pingmianweizhi(project.get(),engineering.get(),f'{SP.mileageToStr(ZH1)}-{SP.mileageToStr(ZH2)}',gongxu.get(),HEAD,data,path,No)
+                        SP.write_pingmianweizhi(project.get(),engineering.get(),f'{SP.mileageToStr(ZH1)}-{SP.mileageToStr(ZH2)}',f'({side.get()}){gongxu.get()}',HEAD,data,path,No)
                         No=No+1
                         data=[]
                     
@@ -1322,29 +1274,110 @@ class APP:
                     data.append([f'{SP.mileageToStr(zh)} {pianju}',X,Y,round(X+px/1000,4),round(Y+py/1000,4),px,py,ps])
                 HEAD=SP.HEADER(OPTION.getCtr(zh))
 
+            if data!=[]:
+                print('data',data)
+                SP.write_pingmianweizhi(project.get(),engineering.get(),f'{SP.mileageToStr(ZH1)}-{SP.mileageToStr(ZH2)}',f'({side.get()}){gongxu.get()}',HEAD,data,path,No)
+
+
         except Exception as e:
             messagebox.showerror('错误信息',f'发生错误,{e}，执行失败！！')
         else:
             messagebox.showinfo('信息', '成功')
-            self.PMWZ_view()
+            
 
 
     ####################################################################
 
-    def Tree(self,top,header,zh1,zh2,plv,LJ,ReH,SIDE,eng):
+    def Tree(self,top,header,zh1,zh2,side,ping,rw,lj,high,eng,gongxu):
         global tree
         global JianCe
         global RW
         global showTree
         global res
 
-        print(zh1.get())
-        print(zh2.get())
-        print(plv.get())
-        print(ReH.get())
-        #print(SIDE.get())
-        print(eng.get())
-        print(self.fun)
+        print('桩号1',zh1.get())
+        print('桩号2',zh2.get())
+        print('频率',ping.get())
+        print('高差',high.get())
+        print('工程',eng.get())
+        print('gongxu',gongxu.get())
+        self.Deal()
+        print('方法',self.fun)
+
+        if 'tree' in globals():
+            num=1 if ping.get()==0 else int((zh2.get()-zh1.get())//ping.get())
+            CDS=[round(zh1.get()+ping.get()*i+ping.get()*random.uniform(0.3,0.8),3) for i in range(num)]
+            
+            #zh,rw,LJ,data=[]
+            data=[high.get(),side.get(),eng.get(),gongxu.get()]
+            NO=0
+            index=0
+            for zh in CDS:
+                dd=self.fun(zh,rw.get(),lj.get(),data)
+                print(zh,dd)
+                if dd!=None:
+                    k=len(dd)
+                    i=0
+                    for d in dd:
+                        height=CeLiang.CeLiang(res,d[0],rw.get()).Height(d[1])
+                        point=CeLiang.CeLiang(res,d[0],rw.get()).Point(d[1])
+                        if d[1]==0:
+                            pj='中'
+                        else:
+                            pj=f'左,{-d[1]}' if d[1]<0 else f'右,{d[1]}'
+                        values=[d[0],pj,point[0],point[1]]
+                        NO=index*k+i
+                        tree.item(f'{NO}',values=values) if tree.exists(f'{index*k+i}') else tree.insert('','end',f'{index*k+i}',values=values)
+                        i=i+1
+                    index=index+1
+            for item in tree.get_children()[NO+1:]:
+                if tree.exists(item):
+                    tree.delete(item)
+
+
+        else:
+            tree=ttk.Treeview(show='headings')#show='headings'
+
+            style=ttk.Style()
+            style.theme_use('default')
+            
+            tree["columns"] = header
+            for head in header:
+                tree.column(f"{head}", width=80,anchor="center")
+                tree.heading(f"{head}", text=f"{head}")
+
+            num=1 if ping.get()==0 else int((zh2.get()-zh1.get())//ping.get())
+            CDS=[round(zh1.get()+ping.get()*i+ping.get()*random.uniform(0.3,0.8),3) for i in range(num)]
+            
+            #zh,rw,LJ,data=[]
+            data=[high.get(),side.get(),eng.get(),gongxu.get()]
+            
+            index=0
+            for zh in CDS:
+                dd=self.fun(zh,rw.get(),lj.get(),data)
+                print(zh,dd)
+                if dd!=None:
+                    k=len(dd)
+                    i=0
+                    for d in dd:
+                        height=CeLiang.CeLiang(res,d[0],rw.get()).Height(d[1])
+                        point=CeLiang.CeLiang(res,d[0],rw.get()).Point(d[1])
+                        if d[1]==0:
+                            pj='中'
+                        else:
+                            pj=f'左,{-d[1]}' if d[1]<0 else f'右,{d[1]}'
+                        values=[d[0],pj,point[0],point[1]]
+                        tree.insert('','end',f'{index*k+i}',values=values,tags=('oddrow'))
+                        i=i+1
+                    index=index+1
+            tree.tag_configure('oddrow', background='lightgrey')
+            
+            tree.bind("<Delete>",self.Del)
+            tree.bind("<Double-1>",self.edit) 
+
+            top.add(tree)
+
+
 
 
     ############################################################
@@ -1360,7 +1393,7 @@ class APP:
 
         global tree
         global mods
-        global opt_md
+        global Pane_mod
         global show_md
         for item in tree.selection():
             #item = I001
@@ -1372,7 +1405,7 @@ class APP:
                 values=[s.get() for s in mods]
                 tree.item(Item, text="", values=values)
                 tree.update()
-                self.Clear(opt_md)
+                self.Clear(Pane_mod)
                 show_md=False
                 print(Item)
                 
@@ -1385,17 +1418,17 @@ class APP:
                     tem=StringVar()
                     tem.set(var)
                     entryedit = Entry(textvariable=tem,width=10)
-                    opt_md.add(Label(text=f'{lbs[i]}：'))
-                    opt_md.add(entryedit)
+                    Pane_mod.add(Label(text=f'{lbs[i]}：'))
+                    Pane_mod.add(entryedit)
                     mods.append(tem)
                     i=i+1
-                opt_md.add(Button(text='保存',command=lambda:save(item)))
+                Pane_mod.add(Button(text='保存',command=lambda:save(item)))
                 show_md=True
             
 
-    def calculate(self,tree,ReH):
+    def calculate(self,tree,RW,ReH):
         global JianCe
-        global RW
+        
         global res
         try:
 
@@ -1432,5 +1465,6 @@ class APP:
             messagebox.showerror('错误', f'计算失败,发生错误：{e}')
     ################################################################
 APP()
+
 
     
