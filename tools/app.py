@@ -5,7 +5,6 @@ from docx.shared import Pt
 from docx.shared import Inches
 from docx.oxml.ns import qn
 import openpyxl as xl
-import re
 from tkinter import *
 from PIL import Image ,ImageTk
 from tkinter import messagebox
@@ -20,8 +19,10 @@ import pythoncom
 import CeLiang
 import time
 from natsort import natsorted
+import threading
 
 #################################################################
+
 def source_path(relative_path):
     if os.path.exists(relative_path):
         base_path = os.path.abspath(".")
@@ -32,7 +33,7 @@ def source_path(relative_path):
 
 background=source_path('background')
 RES=source_path('res')
-muban=source_path('muban')
+muban=source_path('muban') 
 
 ################################################################
 class OPTION:
@@ -98,7 +99,19 @@ class RMC:
 ###############################
 
 
+class MyThread(threading.Thread):
+    def __init__(self, func, *args):
+        super().__init__()
 
+        
+        self.func = func
+        self.args = args
+        
+        self.setDaemon(True)
+        self.start()    # 在这里开始
+        
+    def run(self):
+        self.func(*self.args)
 
 
 
@@ -332,10 +345,13 @@ class SP:
 
 
     #圆管涵
-    #data=[reHigh,d]
+    #data=[reHigh,d,'圆管涵','工序']
     def HD(zh,rw,LJ,data=[]):
-        pass
+        bd={0.75:0.11,1.0:0.12,1.5:0.14}
+        δ=bd[data0]
+        k1=round(1.5*data[0]+2*δ+0.3+0.5,3)
 
+        return{'基坑开挖后':[round(zh-k1,3),round(zh+k1,3)]}
 
 
 
@@ -504,7 +520,6 @@ class SP:
 ############################################################################            
 class Tool:
 
-
     def zhuanhuan(path,dest_path):
         pythoncom.CoInitialize()
         word= wc.Dispatch("Word.application")
@@ -512,8 +527,6 @@ class Tool:
         word.DisplayAlerts =0
         excel=wc.gencache.EnsureDispatch('Excel.Application')
         for file in os.listdir(path):
-
-
            
             if os.path.splitext(file)[1] in ['.doc','.docx']:
                 print("文件名",file)
@@ -533,9 +546,6 @@ class Tool:
         word.Quit()
         excel.Quit()
         pythoncom.CoUninitialize()
-
-
-
 
 
 
@@ -581,12 +591,14 @@ class Tool:
        
 class APP:
     global Page
-    global HOME
+
     global resources
     Page=None
-    HOME=False
-    ENGS={'土方路基':'TF','圆管涵':'HD','盖板涵':'HD','衡重式挡墙':'DQ_PJ','仰斜式挡墙':'DQ_PJ','路堑墙':'DQ_PJ','护肩墙':'DQ_PJ','Ⅰ型浆砌片石边沟':'BG','Ⅱ型浆砌片石边沟':'BG','Ⅲ型浆砌片石边沟':'BG','Ⅳ型浆砌片石边沟':'BG','路肩':'LJ','级配碎石垫层':'JPSS','水稳':'SWC','其他':'Other'}
+
+    ENGS={'土方工程':'TF','涵洞工程':'HD','挡墙工程':'DQ_PJ','排水工程':'BG','路基工程':'JPSS','路面工程':'SWC','其他工程':'Other'}
     resources={'会东县人民村通村公路工程':'RMC','会东县营盘村通村公路工程':'YPC','会东县县道XW20线姜香路姜州至龙树段升级改造工程':'JXL','会东县县道XW21线新会路新街至铅锌镇段升级改造工程':'XHL','会东县县道XW22线会淌路升级改造工程':'HTL'}
+    
+
     #########初始化###################################
     def __init__(self):
         global root
@@ -609,20 +621,18 @@ class APP:
         root.attributes("-alpha", 0.98)
         root.iconbitmap(RES+'\\'+'favicon.ico')
 
+
         mbar=Menu(root)
         menu_main=Menu(mbar,tearoff=0)
-        menu_main.add_command(label='主页',command=self.Home)
+        menu_main.add_command(label='主页',command=self.MainPage)
         menu_main.add_command(label='批量替换',command=self.view_rep_SP)
         menu_main.add_command(label='文件夹内批量替换',command=self.view_Normal)
         menu_main.add_command(label='文档转换',command=self.view_exchange)
         menu_main.add_command(label='批量打印',command=self.Printer)
 
         mbar.add_cascade(label='主菜单',menu=menu_main)
-        mbar.add_command(label='高程检测工具',command=self.HeightCheck)
-        mbar.add_command(label='平面位置检测工具',command=self.PMWZ_view)
-        mbar.add_command(label='换肤',command=self.skin)
-        setting=Menu(mbar,tearoff=0)
-        Pro=Menu(setting,tearoff=0)
+
+        Pro=Menu(mbar,tearoff=0)
         project=StringVar()
         Pro.add_radiobutton(label='人民村路' ,variable=project,value='会东县人民村通村公路工程',command=self.SETTING)
         Pro.add_radiobutton(label='姜香路' ,variable=project,value='会东县县道XW20线姜香路姜州至龙树段升级改造工程',command=self.SETTING)
@@ -630,16 +640,36 @@ class APP:
         Pro.add_radiobutton(label='营盘村路',variable=project,value='会东县营盘村通村公路工程',command=self.SETTING)
         Pro.add_radiobutton(label='会淌路' ,variable=project,value='会东县县道XW22线会淌路升级改造工程',command=self.SETTING)
         Pro.add_radiobutton(label='其他' ,variable=project,value='other',command=self.SETTING)
-        setting.add_cascade(label='项目名称',menu=Pro)
-        
-        Engineering=Menu(setting,tearoff=0)
+        mbar.add_cascade(label='项目名称',menu=Pro)
+
+        Class=Menu(mbar,tearoff=0)
+
         engineering=StringVar()
+
+        Class.add_radiobutton(label='土方工程',variable=engineering ,value='土方工程',command=self.Deal)
+        Class.add_radiobutton(label='涵洞工程',variable=engineering ,value='涵洞工程',command=self.Deal)
+        Class.add_radiobutton(label='挡墙工程',variable=engineering ,value='挡墙工程',command=self.Deal)
+        Class.add_radiobutton(label='排水工程',variable=engineering ,value='排水工程',command=self.Deal)
+        Class.add_radiobutton(label='路肩工程',variable=engineering ,value='路肩工程',command=self.Deal)
+        Class.add_radiobutton(label='路基工程',variable=engineering ,value='路基工程',command=self.Deal)
+        Class.add_radiobutton(label='路面工程',variable=engineering ,value='路面工程',command=self.Deal)
+        Class.add_radiobutton(label='其他工程',variable=engineering ,value='其他工程',command=self.Deal)
+        mbar.add_cascade(label='类别',menu=Class)
+
+
+
+        
+        
+        setting=Menu(mbar,tearoff=0)
+        setting.add_command(label='换肤',command=self.skin)
+        
         mbar.add_cascade(label='设置',menu=setting)
+        mbar.add_command(label='关于')
 
         mbar.add_command(label='退出',command=root.quit)
         root.config(menu=mbar)
         bg_name=StringVar()
-        bg_name.set(background+'\\美女 .jpg')
+        bg_name.set(background+'\\fds.jpg')
         image=Image.open(f'{bg_name.get()}') if os.path.isfile(f'{bg_name.get()}') else None
         pic=ImageTk.PhotoImage(image) if os.path.isfile(f'{bg_name.get()}') else None
         msg=''
@@ -696,11 +726,15 @@ class APP:
             res=RES+'\\'+resources[project.get()]
         else:
             res=None
-        self.Home()        
+        self.Home()
+
     def Deal(self):
         global engineering
         obj=SP
         self.fun=getattr(obj,self.ENGS[engineering.get()])
+
+        self.MainPage()
+
     ########清除###########################################
     def Clear(self,Page:PanedWindow):
         
@@ -711,75 +745,86 @@ class APP:
     ########主页#########################################
     def Home(self):
         global Page
-        global HOME
         global project
-        global showTree
-        self.Clear(Page)
+        MyThread(self.Clear,Page)
+
+
+
         Page.add(Label(text='欢迎',font=('仿宋',20)))
         Page.add(Label(text='注：高程，平面位置需先设置，相关内容',font=('仿宋',13,'bold'),fg='red'))
         if project.get()=='会东县人民村通村公路工程':
             Page.add(Label(text='人民村路：0~6100路肩为0.25；6100~9645.5路肩为0.4，9645.5~10581.786为0.5；\n0~9645.5路面宽度为6.5，9645.5~10581.786为路面宽度7.5。',font=('仿宋',16),fg='brown'))
         
-        HOME=False
-        showTree=False
+        
+    def MainPage(self):
+        global Page
+        global project
+        global engineering
+        self.Clear(Page)
+        if project.get()!='' and engineering.get()!='':
+            Page.add(Button(text='放线记录',command=self.FX_view,height=5,width=40))
+            Page.add(Button(text='平面位置检测',command=self.PMWZ_view,height=5,width=40))
+            Page.add(Button(text='高程检测',command=self.HeightCheck,height=5,width=40))
+
+
     ########桩号替换#########################################
     def view_rep_SP(self):
         global root
         global Page        
         global values
         global HOME
-        self.Clear(Page)
-        if HOME==False:
-            if Page ==None:
-                Page=PanedWindow(root,orient=VERTICAL)
-                Page.place(x=60,y=60)
-            Page.add(Label(text='特殊（桩号）批量替换工具',font=('仿宋 22')))
-            pan1=PanedWindow()
-            pan1.add(Label(text='需要处理的文件路径：'))
-            path=StringVar()
-            path.set('mode')
-            pan1.add(Entry(textvariable=path))
-            Page.add(pan1)
-            pan2=PanedWindow()
-            pan2.add(Label(text='需要处理的桩号文件：'))
-            data=StringVar()
-            data.set('rep.xlsx')
-            pan2.add(Entry(textvariable=data))
-            Page.add(pan2)
-            values=[]
-            PATH=None
-            def deal():
-                global PATH
-                global SHEET
-                try:
-                    if  os.path.isdir(path.get()):
-                        PATH=path.get()  
-                    else:
-                        raise Exception('未指定路径')
-                    if  os.path.isfile(data.get()):
-                        dt=xl.load_workbook(data.get())
-                        SHEET=list(dt.worksheets[0].rows)
-                    else:
-                        raise Exception('未找到文件')
-                    row=list(dt.worksheets[0].rows)[0]
-                    if values==[]:
-                        for cell in row:
-                            pan=PanedWindow()
-                            var1=StringVar()
-                            pan.add(Label(text=f'替换{cell.column}（旧）：'))
-                            var1.set(cell.value)
-                            pan.add(Entry(textvariable=var1))
-                            values.append(var1)
-                            
-                            Page.add(pan)
-                        Page.add(Button(text='开始替换',command=self.replace_SP))
-                    dt.close()
-                except Exception as err:
+        MyThread(self.Clear,Page)
+        
+        if Page not in globals():
+            Page=PanedWindow(root,orient=VERTICAL)
+            Page.place(x=60,y=60)
+        Page.add(Label(text='特殊（桩号）批量替换工具',font=('仿宋 22')))
+        pan1=PanedWindow()
+        pan1.add(Label(text='需要处理的文件路径：'))
+        path=StringVar()
+        path.set('mode')
+        pan1.add(Entry(textvariable=path))
+        Page.add(pan1)
+        pan2=PanedWindow()
+        pan2.add(Label(text='需要处理的桩号文件：'))
+        data=StringVar()
+        data.set('rep.xlsx')
+        pan2.add(Entry(textvariable=data))
+        Page.add(pan2)
+        values=[]
+        PATH=None
+        def deal():
+            global PATH
+            global SHEET
+            try:
+                if  os.path.isdir(path.get()):
+                    PATH=path.get()  
+                else:
+                    raise Exception('未指定路径')
+                if  os.path.isfile(data.get()):
+                    dt=xl.load_workbook(data.get())
+                    SHEET=list(dt.worksheets[0].rows)
+                else:
+                    raise Exception('未找到文件')
+                row=list(dt.worksheets[0].rows)[0]
+                if values==[]:
+                    for cell in row:
+                        pan=PanedWindow()
+                        var1=StringVar()
+                        pan.add(Label(text=f'替换{cell.column}（旧）：'))
+                        var1.set(cell.value)
+                        pan.add(Entry(textvariable=var1))
+                        values.append(var1)
+                        
+                        Page.add(pan)
+                    Page.add(Button(text='开始替换',command=self.replace_SP))
+                dt.close()
+            except Exception as err:
 
-                    messagebox.showerror('showerror', err)
+                messagebox.showerror('showerror', err)
 
-            Page.add(Button(text='提交',command=deal))
-            HOME=True
+        Page.add(Button(text='提交',command=deal))
+            
     def replace_SP(self):
         global values
         global PATH
@@ -818,7 +863,7 @@ class APP:
         global Page
         global PATH
         global values
-        self.Clear(Page)
+        MyThread(self.Clear,Page)
         Page.add(Label(text='指定路径批量替换',font=('仿宋 22')))
         opt1=PanedWindow()
         opt1.add(Label(text='需要处理的文件夹路径：'))
@@ -914,7 +959,7 @@ class APP:
         global opt_md
         global show_md
         global show_data
-        self.Clear(Page)
+        MyThread(self.Clear,Page)
         show_md=False
         Page.add(Label(text='批量打印',font=('仿宋',18,'bold'),fg='purple'))
         opt1=PanedWindow()
@@ -1046,14 +1091,18 @@ class APP:
     def View(self,title,JC,tb_hd,font,rowHigh,cmd):
         global project
         global Page
+        global pulldown
         global engineering
+        global Pane3
         global side
         global show_md
         global Pane_mod
         global tree
         global JianCe
         JianCe=JC
+
         show_md=False
+
         Pane1=PanedWindow(height=rowHigh*2)
         Pane1.add(Label(text=title,font=font))
         Page.add(Pane1)
@@ -1067,11 +1116,10 @@ class APP:
         pulldown=ttk.Combobox(values=LIST,textvariable=engineering)
         pulldown.current(0)
         pulldown['state']='readonly'
+        Pane3=None
+        pulldown.bind("<<ComboboxSelected>>",self.showSide)
         Pane2.add(pulldown)
         Page.add(Pane2)
-
-
-
         Pane3=PanedWindow(height=rowHigh)
         Pane3.add(Label(text='工程部位'))
 
@@ -1090,34 +1138,12 @@ class APP:
         Pane3.add(Entry(textvariable=ZH2))
 
         Pane3.add(Label(text='相对高度：'))
-        Pane3.add(Entry(textvariable=high))        
-        self.show_side=False
+        Pane3.add(Entry(textvariable=high))
+
+        
         Page.add(Pane3)
-        def showSide(event):
-            global side
-            if pulldown.get() in list(self.ENGS.keys())[3:11]:  
-                if self.show_side==False:
-                    
-                    print(pulldown.get())
-                    R=Radiobutton(text='左侧',variable=side,value='左侧')
-                    L=Radiobutton(text='右侧',variable=side,value='右侧')
-                    Pane3.add(L)
-                    Pane3.add(R)
-                    pulldown['state']='readonly'
-                    self.show_side=True
-            elif pulldown.get() in list(self.ENGS.keys())[-1]:
-                pulldown['state']=''
-                side.set('')
-            else:
-                side.set('')
-                for i in Pane3.panes():
-                    if 'radiobutton' in i.string:
-                        Pane3.forget(i)
-                self.show_side=False
-            messagebox.showinfo('信息',f'你选择了：{pulldown.get()}')
 
-        pulldown.bind("<<ComboboxSelected>>",showSide)        
-
+ 
         Pane4=PanedWindow(height=rowHigh)
         Pane4.add(Label(text='工序'))
         gongxu=ttk.Combobox(values=['基坑开挖前','基坑开挖后','基坑底','基层顶','墙身顶','回填第i层'])
@@ -1130,8 +1156,10 @@ class APP:
         Pane4.add(Entry(textvariable=LJ))
         Page.add(Pane4)
         Pane5=PanedWindow(height=rowHigh)
-        Pane5.add(Button(text='自动获取',width=30,command=lambda:self.Tree(Pane_data,tb_hd,ZH1,ZH2,side,Ping,RW,LJ,high,pulldown,gongxu)))
-        Pane5.add(Button(text='修改计算',width=30,command=lambda:self.calculate(tree,high,RW)))
+        Pane_data=None
+
+        Pane5.add(Button(text='自动获取',width=30,command=lambda:MyThread(self.Tree,Pane_data,tb_hd,ZH1,ZH2,side,Ping,RW,LJ,high,pulldown,gongxu)))
+        Pane5.add(Button(text='修改计算',width=30,command=lambda:MyThread(self.calculate,tree,high,RW)))
         Page.add(Pane5)
         Page.add(Label(text='++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++'))
         Pane_mod=PanedWindow(height=rowHigh)
@@ -1142,16 +1170,45 @@ class APP:
         Pane_save.add(Label(text='保存位置：'))
         PATH=StringVar()
         Pane_save.add(Entry(textvariable=PATH,width=30))
-        Pane_save.add(Button(text='保存(SAVE)',command=lambda:cmd(tree,project,pulldown,ZH1,ZH2,side,gongxu,PATH)))
+        Pane_save.add(Button(text='保存(SAVE)',command=lambda:MyThread(cmd,tree,project,pulldown,ZH1,ZH2,side,gongxu,PATH)))
 
         Page.add(Pane_save)
         pass
 
+    def showSide(self,event):
+        global side
+        global pulldown
+        global Pane3
+
+        if pulldown.get() in list(self.ENGS.keys())[3:11]:
+            if side.get()=='':
+                side=StringVar()
+                side.set('左侧')
+                Pane3.add(Radiobutton(text='左侧' ,variable=side,value='左侧'))
+                Pane3.add(Radiobutton(text='右侧' ,variable=side,value='右侧'))
+            pulldown['state']='readonly' 
+        else:
+            pulldown['state']='' if pulldown.get()=='其他' else 'readonly'
+            side.set('')
+            for pan in Pane3.panes():
+                if 'radiobutton' in pan.string:
+                    Pane3.forget(pan)
+
+
+    def FX_view(self):
+        global Page
+        global JianCe
+        MyThread(self.Clear,Page)
+        JianCe='pmwz'
+
+        self.View('放线记录','放线记录',['桩号','偏距','X','Y','计算方位角','计算距离'],('仿宋',20),25,self.gaochengDeal)
+
+        
     ###########高程####################################################
     def HeightCheck(self):
         global Page
         global JianCe
-        self.Clear(Page)
+        MyThread(self.Clear,Page)
         JianCe='pmwz'
 
         self.View('高程检测','高程检测',['桩号','偏距','X','Y'],('仿宋',20),25,self.gaochengDeal)
@@ -1227,7 +1284,7 @@ class APP:
         global Page
         global JianCe
         self.Clear(Page)
-        JianCe='pmwz'
+        
 
         self.View('平面位置检测','平面位置检测',['桩号','偏距','X','Y'],('仿宋',20),25,self.pmwzDeal)
 
@@ -1291,8 +1348,6 @@ class APP:
     def Tree(self,top,header,zh1,zh2,side,ping,rw,lj,high,eng,gongxu):
         global tree
         global JianCe
-        global RW
-        global showTree
         global res
 
         print('桩号1',zh1.get())
@@ -1301,10 +1356,10 @@ class APP:
         print('高差',high.get())
         print('工程',eng.get())
         print('gongxu',gongxu.get())
-        self.Deal()
         print('方法',self.fun)
 
         if 'tree' in globals():
+
             num=1 if ping.get()==0 else int((zh2.get()-zh1.get())//ping.get())
             CDS=[round(zh1.get()+ping.get()*i+ping.get()*random.uniform(0.3,0.8),3) for i in range(num)]
             
@@ -1314,7 +1369,7 @@ class APP:
             index=0
             for zh in CDS:
                 dd=self.fun(zh,rw.get(),lj.get(),data)
-                print(zh,dd)
+                
                 if dd!=None:
                     k=len(dd)
                     i=0
@@ -1325,7 +1380,7 @@ class APP:
                             pj='中'
                         else:
                             pj=f'左,{-d[1]}' if d[1]<0 else f'右,{d[1]}'
-                        values=[d[0],pj,point[0],point[1]]
+                        values=[d[0],pj,f'{point[0]:.4f}',f'{point[1]:.4f}']
                         NO=index*k+i
                         tree.item(f'{NO}',values=values) if tree.exists(f'{index*k+i}') else tree.insert('','end',f'{index*k+i}',values=values)
                         i=i+1
@@ -1355,7 +1410,7 @@ class APP:
             index=0
             for zh in CDS:
                 dd=self.fun(zh,rw.get(),lj.get(),data)
-                print(zh,dd)
+                
                 if dd!=None:
                     k=len(dd)
                     i=0
@@ -1366,11 +1421,13 @@ class APP:
                             pj='中'
                         else:
                             pj=f'左,{-d[1]}' if d[1]<0 else f'右,{d[1]}'
-                        values=[d[0],pj,point[0],point[1]]
-                        tree.insert('','end',f'{index*k+i}',values=values,tags=('oddrow'))
+                        values=[d[0],pj,f'{point[0]:.4f}',f'{point[1]:.4f}']
+                        
+                        tree.insert('','end',f'{index*k+i}',values=values)
+                        
                         i=i+1
                     index=index+1
-            tree.tag_configure('oddrow', background='lightgrey')
+            
             
             tree.bind("<Delete>",self.Del)
             tree.bind("<Double-1>",self.edit) 
@@ -1463,7 +1520,16 @@ class APP:
                 raise Exception('请检查相关参数是否输入完整')
         except Exception as e:
             messagebox.showerror('错误', f'计算失败,发生错误：{e}')
+
     ################################################################
+    @staticmethod
+    def thread_it(func, *args):
+        t = threading.Thread(target=func, args=args) 
+        t.setDaemon(True)   # 守护--就算主界面关闭，线程也会留守后台运行（不对!）
+        t.start()           # 启动
+        # t.join()          # 阻塞--会卡死界面！
+
+
 APP()
 
 
