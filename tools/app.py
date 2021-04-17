@@ -100,18 +100,19 @@ class RMC:
 
 
 class MyThread(threading.Thread):
-    def __init__(self, func, *args):
+    def __init__(self, func, *args, **kwargs):
         super().__init__()
 
         
         self.func = func
         self.args = args
+        self.kwargs=kwargs
         
         self.setDaemon(True)
         self.start()    # 在这里开始
         
     def run(self):
-        self.func(*self.args)
+        self.func(*self.args,**self.kwargs)
 
 
 
@@ -247,21 +248,32 @@ class SP:
         return (Hsx,dest,i+1)
 
     
-    def HEADER(KZD=[]):
+    def HEADER(KZD=[],*args):
         
-        if KZD!=None:
-            X0=KZD[0][1]
-            Y0=KZD[0][2]
-            H0=KZD[0][3]
-            X2=KZD[1][1]
-            Y2=KZD[1][2]
-            H2=KZD[1][3]
-            s=round(((X2-X0)**2+(Y2-Y0)**2)**0.5,3)
-            a=math.degrees(math.atan2(X2-X0,Y2-Y0))
-            α=SP.AngleChange(a) if a>0 else SP.AngleChange(a+360)
-            KZD.append(s)
-            KZD.append(α)
-            return KZD
+        if KZD!=None :
+            if args==None:
+                X0=KZD[0][1]
+                Y0=KZD[0][2]
+                H0=KZD[0][3]
+                X2=KZD[1][1]
+                Y2=KZD[1][2]
+                H2=KZD[1][3]
+                s=round(((X2-X0)**2+(Y2-Y0)**2)**0.5,3)
+                a=math.degrees(math.atan2(X2-X0,Y2-Y0))
+                α=SP.AngleChange(a) if a>0 else SP.AngleChange(a+360)
+                KZD.append(s)
+                KZD.append(α)
+                return KZD
+            else:
+                X0=KZD[0][1]
+                Y0=KZD[0][2]
+                X1=args[0]
+                Y1=args[1]
+                s=round(((X2-X0)**2+(Y2-Y0)**2)**0.5,3)
+                a=math.degrees(math.atan2(X2-X0,Y2-Y0))
+                α=SP.AngleChange(a) if a>0 else SP.AngleChange(a+360)
+                return (α,s)
+
         else:
             return None
 
@@ -315,13 +327,12 @@ class SP:
             
 
     #衡重式挡墙
-    #data=[reHigh,side,'仰斜式挡墙','基坑底']
-    def DQ_PJ(zh,rw,LJ,data=[]):
+    #**kwargs={side:'','tp':'仰斜式挡墙','基坑底']}
+    def DQ_PJ(zh,rw,LJ,**kwargs):
         global res
 
         def getdq(dq):
-            
-            return ((data[1] in dq) and (zh>dq[0] and zh<dq[1]))
+            return ((kwargs['side'] in dq) and (zh>dq[0] and zh<dq[1]))
         file=open(res+'\\DQ_shoufang', "r+",encoding='UTF-8')
 
         dqs=[]
@@ -335,21 +346,23 @@ class SP:
         
         H=chicun[0][5]
         print(H)
-        rh=abs(CeLiang.CeLiang(res,zh,rw).side(data[1])[1])
+        rh=abs(CeLiang.CeLiang(res,zh,rw).side(kwargs['side'])[1])
         print(rh)
-        PJ= SP.DQSIZE(rh,H,data[2])[data[3]]
+        PJ= SP.DQSIZE(rh,H,kwargs['gongcheng'])[kwargs['gongxu']]
 
-        pianju= [[zh,i] for i in PJ] if data[1]=='右侧' else [[zh,-i] for i in PJ]
+        pianju= [[zh,i] for i in PJ] if kwargs['side']=='右侧' else [[zh,-i] for i in PJ]
         return pianju
         
 
 
     #圆管涵
     #data=[reHigh,d,'圆管涵','工序']
-    def HD(zh,rw,LJ,data=[]):
+    def HD(zh,rw,LJ,**kwargs):
+        global res
         bd={0.75:0.11,1.0:0.12,1.5:0.14}
-        δ=bd[data0]
-        k1=round(1.5*data[0]+2*δ+0.3+0.5,3)
+        δ=bd[kwargs['D']]
+        k1=round(1.5*kwargs['D']+2*δ+0.3+0.5,3)
+        wide=CeLiang.CeLiang(res,zh,rw).widen
 
         return{'基坑开挖后':[round(zh-k1,3),round(zh+k1,3)]}
 
@@ -358,43 +371,43 @@ class SP:
     #土方路基
     # zh 桩号，rw 道路宽度，LJ 路肩宽度，reHigh 相对设计路面高度。
     #data=[reHigh]
-    def TF(zh,rw,LJ,data=[]):
+    def TF(zh,rw,LJ,**kwargs):
         global res
         wide=CeLiang.CeLiang(res,zh,rw).widen
-        ex=-data[0]*1.5
+        ex=-kwargs['high']*1.5
         return [[zh,round(wide[0]-ex,3)],[zh,0],[zh,round(wide[1]+ex,3)]]
 
     # zh 桩号，rw 道路宽度，LJ 路肩宽度，SIDE 路肩位置。
     #data=[reHigh,SIDE]
-    def LJ(zh,rw,LJ,data=[]):
+    def LJ(zh,rw,LJ,**kwargs):
         global res
-        Half=CeLiang.CeLiang(res,zh,rw).side(data[0])[1]
-        ex=LJ if  data[0]=='右侧' else -LJ
+        Half=CeLiang.CeLiang(res,zh,rw).side(kwargs['side'])[1]
+        ex=LJ if  kwargs['side']=='右侧' else -LJ
         return [[zh,Half],[zh,round(Half-ex,3)]]
 
     # zh 桩号，rw 道路宽度，LJ 路肩宽度，SIDE 边沟位置，TP 边沟型号，reHigh 设计路面到边沟顶的高度。
     #data=[reHigh,side,TP]
-    def BG(zh,rw,LJ,data=[]):
+    def BG(zh,rw,LJ,**kwargs):
         global res
-        Half=CeLiang.CeLiang(res,zh,rw).side(data[0])[1]
+        Half=CeLiang.CeLiang(res,zh,rw).side(kwargs['side'])[1]
 
-        if 'Ⅰ型' in data[2]:
-            ex=0.65 if data[0]=='右侧' else -0.65
+        if 'Ⅰ型' in kwargs['TP']:
+            ex=0.65 if kwargs['side']=='右侧' else -0.65
             return [[zh,Half],[zh,0],[zh,Half+ex]]
-        elif 'Ⅱ型' in data[2]:
-            ex=0.4 if data[0]=='右侧' else -0.4
+        elif 'Ⅱ型' in kwargs['gongcheng']:
+            ex=0.4 if kwargs['side']=='右侧' else -0.4
             return [[zh,Half],[zh,Half+ex]]
-        elif 'Ⅲ型' in data[2]:
-            ex1=round(data[1]*1.5,3)
+        elif 'Ⅲ型' in kwargs['gongcheng']:
+            ex1=round(kwargs['high']*1.5,3)
             ex2=round(ex1+0.9,3)
             pass
-        elif 'Ⅳ型' in data[2]:
-            ex1=-0.25 if data[0]=='右侧' else 0.25
-            ex2= 0.75 if data[0]=='右侧' else -0.75
+        elif 'Ⅳ型' in kwargs['TP']:
+            ex1=-0.25 if kwargs['side']=='右侧' else 0.25
+            ex2= 0.75 if kwargs['side']=='右侧' else -0.75
             return [[zh,round(Half-ex1,3)],[zh,round(Half+ex2,3)]]
     # zh 桩号，rw 道路宽度，LJ 路肩宽度
     #data=[reHigh]
-    def JPSS(zh,rw,LJ,data=[]):
+    def JPSS(zh,rw,LJ,**kwargs):
         global res
         wide=CeLiang.CeLiang(res,zh,rw).widen
         return [[zh,round(wide[0]+LJ,3)],[zh,0],[zh,round(wide[1]-LJ,3)]]
@@ -403,7 +416,7 @@ class SP:
 
     # zh 桩号，rw 道路宽度，LJ 路肩宽度
     #data=[reHigh]
-    def SWC(zh,rw,LJ,data=[]):
+    def SWC(zh,rw,LJ,**kwargs):
         global res
         wide=CeLiang.CeLiang(res,zh,rw).widen
         return [[zh,round(wide[0]+LJ,3)],[zh,0],[zh,round(wide[1]-LJ,3)]]
@@ -411,7 +424,7 @@ class SP:
 
     
     # zh 桩号，rw 道路宽度，LJ 路肩宽度    
-    def Other(zh,rw,LJ,data=[]):
+    def Other(zh,rw,LJ,**kwargs):
         global res
         wide=CeLiang.CeLiang(res,zh,rw).widen
         return [[zh,wide[0]],[zh,0],[zh,wide[1]]]
@@ -595,10 +608,14 @@ class APP:
     global resources
     Page=None
 
-    ENGS={'土方工程':'TF','涵洞工程':'HD','挡墙工程':'DQ_PJ','排水工程':'BG','路基工程':'JPSS','路面工程':'SWC','其他工程':'Other'}
+    ENGS={'土方工程':'TF','涵洞工程':'HD','挡墙工程':'DQ_PJ','路肩工程':'LJ','排水工程':'BG','路基工程':'JPSS','路面工程':'SWC','其他工程':'Other'}
     resources={'会东县人民村通村公路工程':'RMC','会东县营盘村通村公路工程':'YPC','会东县县道XW20线姜香路姜州至龙树段升级改造工程':'JXL','会东县县道XW21线新会路新街至铅锌镇段升级改造工程':'XHL','会东县县道XW22线会淌路升级改造工程':'HTL'}
     
-
+    GC_list={'土方工程':['土方路基','石方路基','软土路基',],\
+    '涵洞工程':['圆管涵','盖板涵'],'挡墙工程':['衡重式挡墙','仰斜式挡墙','路堑墙','护肩墙',],\
+    '路肩工程':'',\
+    '排水工程':['Ⅰ型浆砌片石边沟','II型浆砌片石边沟','III型浆砌片石边沟','IV型浆砌片石边沟',],'路基工程':['级配碎石垫层','水泥稳定碎石底基层','水泥稳定碎石基层'],\
+    '路面工程':['稀浆封层','沥青混凝土下面层','透层','粘层','沥青混凝土上面层'],'其他工程':'其他'}
     #########初始化###################################
     def __init__(self):
         global root
@@ -610,6 +627,7 @@ class APP:
         global Page
         global project
         global engineering
+        global resources
         global res
         
 
@@ -634,32 +652,20 @@ class APP:
 
         Pro=Menu(mbar,tearoff=0)
         project=StringVar()
-        Pro.add_radiobutton(label='人民村路' ,variable=project,value='会东县人民村通村公路工程',command=self.SETTING)
-        Pro.add_radiobutton(label='姜香路' ,variable=project,value='会东县县道XW20线姜香路姜州至龙树段升级改造工程',command=self.SETTING)
-        Pro.add_radiobutton(label='新会路' ,variable=project,value='会东县县道XW21线新会路新街至铅锌镇段升级改造工程',command=self.SETTING)
-        Pro.add_radiobutton(label='营盘村路',variable=project,value='会东县营盘村通村公路工程',command=self.SETTING)
-        Pro.add_radiobutton(label='会淌路' ,variable=project,value='会东县县道XW22线会淌路升级改造工程',command=self.SETTING)
-        Pro.add_radiobutton(label='其他' ,variable=project,value='other',command=self.SETTING)
+        for xm in resources:
+            Pro.add_radiobutton(label=xm ,variable=project,value=xm,command=self.SETTING)
+
         mbar.add_cascade(label='项目名称',menu=Pro)
 
         Class=Menu(mbar,tearoff=0)
 
         engineering=StringVar()
+        for gc in self.ENGS:
+            Class.add_radiobutton(label=gc,variable=engineering ,value=gc,command=self.Deal)
 
-        Class.add_radiobutton(label='土方工程',variable=engineering ,value='土方工程',command=self.Deal)
-        Class.add_radiobutton(label='涵洞工程',variable=engineering ,value='涵洞工程',command=self.Deal)
-        Class.add_radiobutton(label='挡墙工程',variable=engineering ,value='挡墙工程',command=self.Deal)
-        Class.add_radiobutton(label='排水工程',variable=engineering ,value='排水工程',command=self.Deal)
-        Class.add_radiobutton(label='路肩工程',variable=engineering ,value='路肩工程',command=self.Deal)
-        Class.add_radiobutton(label='路基工程',variable=engineering ,value='路基工程',command=self.Deal)
-        Class.add_radiobutton(label='路面工程',variable=engineering ,value='路面工程',command=self.Deal)
-        Class.add_radiobutton(label='其他工程',variable=engineering ,value='其他工程',command=self.Deal)
         mbar.add_cascade(label='类别',menu=Class)
 
 
-
-        
-        
         setting=Menu(mbar,tearoff=0)
         setting.add_command(label='换肤',command=self.skin)
         
@@ -740,13 +746,13 @@ class APP:
         
         if Page!=None:
             for  i in Page.panes():
-                Page.forget(i)
+                Page.remove(i)
                 i=None
     ########主页#########################################
     def Home(self):
         global Page
         global project
-        MyThread(self.Clear,Page)
+        self.Clear(Page)
 
 
 
@@ -760,6 +766,7 @@ class APP:
         global Page
         global project
         global engineering
+
         self.Clear(Page)
         if project.get()!='' and engineering.get()!='':
             Page.add(Button(text='放线记录',command=self.FX_view,height=5,width=40))
@@ -773,7 +780,7 @@ class APP:
         global Page        
         global values
         global HOME
-        MyThread(self.Clear,Page)
+        self.Clear(Page)
         
         if Page not in globals():
             Page=PanedWindow(root,orient=VERTICAL)
@@ -863,7 +870,7 @@ class APP:
         global Page
         global PATH
         global values
-        MyThread(self.Clear,Page)
+        self.Clear(Page)
         Page.add(Label(text='指定路径批量替换',font=('仿宋 22')))
         opt1=PanedWindow()
         opt1.add(Label(text='需要处理的文件夹路径：'))
@@ -959,7 +966,7 @@ class APP:
         global opt_md
         global show_md
         global show_data
-        MyThread(self.Clear,Page)
+        self.Clear(Page)
         show_md=False
         Page.add(Label(text='批量打印',font=('仿宋',18,'bold'),fg='purple'))
         opt1=PanedWindow()
@@ -1088,7 +1095,7 @@ class APP:
             messagebox.showinfo('信息','打印结束')
 
     ###########平面位置###################################################
-    def View(self,title,JC,tb_hd,font,rowHigh,cmd):
+    def View(self,title,JC,tb_hd,font1,rowHigh,cmd):
         global project
         global Page
         global pulldown
@@ -1102,124 +1109,89 @@ class APP:
         JianCe=JC
 
         show_md=False
-
-        Pane1=PanedWindow(height=rowHigh*2)
-        Pane1.add(Label(text=title,font=font))
-        Page.add(Pane1)
-        Pane2=PanedWindow(height=rowHigh)
-        Pane2.add(Label(text='工程项目名称'))
-        Pane2.add(Entry(textvariable=project,width=40))
-        Pane2.add(Label(text='工程名称'))
-        LIST=list(self.ENGS.keys())
-        LIST.insert(0,'选择')
-        engineering=StringVar()
-        pulldown=ttk.Combobox(values=LIST,textvariable=engineering)
-        pulldown.current(0)
-        pulldown['state']='readonly'
-        Pane3=None
-        pulldown.bind("<<ComboboxSelected>>",self.showSide)
-        Pane2.add(pulldown)
-        Page.add(Pane2)
-        Pane3=PanedWindow(height=rowHigh)
-        Pane3.add(Label(text='工程部位'))
-
-        ZH1=DoubleVar()
-        ZH2=DoubleVar()
-        Ping=IntVar()
-        RW=DoubleVar()
-        LJ=DoubleVar()
-        side=StringVar()
-        high=DoubleVar()
-        RW.set(6.5)
-        LJ.set(0.25)
-
-        Pane3.add(Entry(textvariable=ZH1))
-        Pane3.add(Label(text='--'))
-        Pane3.add(Entry(textvariable=ZH2))
-
-        Pane3.add(Label(text='相对高度：'))
-        Pane3.add(Entry(textvariable=high))
-
+        Page.add(Label(text=title,font=('仿宋',22,'bold'),bg='darkblue',fg='white',height=2),pady=3)
+        gongxu_list=['基坑开挖前','基坑开挖后','基坑底','基础顶','墙身顶','墙背回填']
+        properties={'project':['项目名称',list(resources.keys()),project],\
+        'gongcheng':['工程名称：',self.GC_list[engineering.get()],StringVar()],\
+        'zh1':['工程部位',None,DoubleVar()],\
+        'zh2':['--',None,DoubleVar()],\
+        'side':['位置',['左侧','右侧'],StringVar()],\
+        'gongxu':['工序',gongxu_list,StringVar()],\
+        'rw':['路面宽度',None,DoubleVar()],
+        'lj':['路肩宽度',None,DoubleVar()],\
+        'ping':['频率',None,IntVar()],\
+        'high':['相对高度',None,DoubleVar()],\
+        } 
+        if engineering.get() not in ['挡墙工程','排水工程','路肩工程']:
+            properties.pop('side')
+        if engineering.get()=='涵洞工程':
+            properties.pop('zh2')
+        kw={k:properties[k][2] for k in properties}
+        kw['lj'].set(0.25)
+        kw['rw'].set(6.5)
         
-        Page.add(Pane3)
+        
 
- 
-        Pane4=PanedWindow(height=rowHigh)
-        Pane4.add(Label(text='工序'))
-        gongxu=ttk.Combobox(values=['基坑开挖前','基坑开挖后','基坑底','基层顶','墙身顶','回填第i层'])
-        Pane4.add(gongxu)
-        Pane4.add(Label(text='检测频率'))
-        Pane4.add(Entry(textvariable=Ping))
-        Pane4.add(Label(text='路面宽度'))
-        Pane4.add(Entry(textvariable=RW))
-        Pane4.add(Label(text='路肩宽度'))
-        Pane4.add(Entry(textvariable=LJ))
-        Page.add(Pane4)
-        Pane5=PanedWindow(height=rowHigh)
+        i=0
+        pan=None
+        for dd in properties.values():
+            if i%2==0:
+                pan=PanedWindow(Page)
+            LB= Label(text=dd[0],bg='gray',fg='white',font=font1)   
+            pan.add(LB,minsize=100,padx=3,pady=3)
+            con=Entry(textvariable=dd[2],font=font1) if dd[1]==None else ttk.Combobox(values=dd[1],textvariable=dd[2],font=font1)
+            pan.add(con,minsize=150,padx=3,pady=3)
+            if i%2==0:
+                Page.add(pan)
+            i=i+1
+
+
+
+
         Pane_data=None
-
-        Pane5.add(Button(text='自动获取',width=30,command=lambda:MyThread(self.Tree,Pane_data,tb_hd,ZH1,ZH2,side,Ping,RW,LJ,high,pulldown,gongxu)))
-        Pane5.add(Button(text='修改计算',width=30,command=lambda:MyThread(self.calculate,tree,high,RW)))
+        Pane5=PanedWindow()
+        Pane5.add(Button(text='自动获取',relief=GROOVE,command=lambda:self.Tree(Pane_data,tb_hd,**kw)),minsize=200,padx=10,pady=5)
+        Pane5.add(Button(text='修改计算',relief=GROOVE),minsize=200,padx=10,pady=5)
         Page.add(Pane5)
         Page.add(Label(text='++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++'))
         Pane_mod=PanedWindow(height=rowHigh)
         Page.add(Pane_mod)
-        Pane_data=PanedWindow(height=350)
+        Pane_data=PanedWindow(height=250)
         Page.add(Pane_data)
         Pane_save=PanedWindow()
         Pane_save.add(Label(text='保存位置：'))
         PATH=StringVar()
         Pane_save.add(Entry(textvariable=PATH,width=30))
-        Pane_save.add(Button(text='保存(SAVE)',command=lambda:MyThread(cmd,tree,project,pulldown,ZH1,ZH2,side,gongxu,PATH)))
-
+        Pane_save.add(Button(text='保存(SAVE)',relief=GROOVE,command=lambda:cmd(tree,PATH,**kw)))
         Page.add(Pane_save)
         pass
 
-    def showSide(self,event):
-        global side
-        global pulldown
-        global Pane3
-
-        if pulldown.get() in list(self.ENGS.keys())[3:11]:
-            if side.get()=='':
-                side=StringVar()
-                side.set('左侧')
-                Pane3.add(Radiobutton(text='左侧' ,variable=side,value='左侧'))
-                Pane3.add(Radiobutton(text='右侧' ,variable=side,value='右侧'))
-            pulldown['state']='readonly' 
-        else:
-            pulldown['state']='' if pulldown.get()=='其他' else 'readonly'
-            side.set('')
-            for pan in Pane3.panes():
-                if 'radiobutton' in pan.string:
-                    Pane3.forget(pan)
 
 
     def FX_view(self):
         global Page
-        global JianCe
-        MyThread(self.Clear,Page)
-        JianCe='pmwz'
+        
+        self.Clear(Page)
 
-        self.View('放线记录','放线记录',['桩号','偏距','X','Y','计算方位角','计算距离'],('仿宋',20),25,self.gaochengDeal)
+        self.View('放线记录','放线记录',['桩号','偏距','X','Y','计算方位角','计算距离'],('楷体',12),25,self.gaochengDeal)
 
         
     ###########高程####################################################
     def HeightCheck(self):
         global Page
-        global JianCe
-        MyThread(self.Clear,Page)
-        JianCe='pmwz'
+        
+        self.Clear(Page)
 
-        self.View('高程检测','高程检测',['桩号','偏距','X','Y'],('仿宋',20),25,self.gaochengDeal)
+        self.View('高程检测','GCJC',['桩号','偏距','设计高程'],('楷体',12),25,self.gaochengDeal)
 
 
-    def gaochengDeal(self,tree,project,side,engineering,zh1,zh2,gongxu,PATH):
+    def gaochengDeal(self,tree,PATH,**kwargs):
 
         try:
-            ZH1=round(float(zh1.get()),3)
-            ZH2=round(float(zh2.get()),3)
-            path=f'{PATH.get()}\\{engineering.get()}\\{SP.mileageToStr(ZH1)}-{SP.mileageToStr(ZH2)}{side.get()}{gongxu.get()}'
+            kwargs={k:kwargs[k].get() for k in kwargs}
+            ZH1=kwargs['zh1']
+            ZH2=kwargs['zh2']
+            path=f'{PATH.get()}\\{kwargs["gongcheng"]}\\{SP.mileageToStr(ZH1)}-{SP.mileageToStr(ZH2)}{kwargs["side"]}{kwargs["gongxu"]}'
             if os.path.isdir(path):
                 pass
             else:
@@ -1270,7 +1242,7 @@ class APP:
                         zhq=zh        
                     data.append([f'{SP.mileageToStr(zh)},{pianju}','','',round(Hsx-round(HS+pc/1000,3),3),'',round(HS+pc/1000,3),HS,pc])
             print(path)
-            SP.write_gaocheng(project.get(),engineering.get(),f'{SP.mileageToStr(round(float(zh1.get()),3))}-{SP.mileageToStr(round(float(zh2.get()),3))}',f'({side.get()}){gongxu.get()}',data,path)
+            SP.write_gaocheng(kwargs['project'],kwargs['gongcheng'],f'{SP.mileageToStr(ZH1)}-{SP.mileageToStr(ZH2)}',f'({kwargs["side"]}){kwargs["gongxu"]}',data,path)
         
             
         except Exception as err:
@@ -1278,15 +1250,14 @@ class APP:
         else:
 
             messagebox.showinfo('信息', '成功')
-            self.HeightCheck()
+            
 
     def PMWZ_view(self):
         global Page
-        global JianCe
         self.Clear(Page)
         
 
-        self.View('平面位置检测','平面位置检测',['桩号','偏距','X','Y'],('仿宋',20),25,self.pmwzDeal)
+        self.View('平面位置检测','PMWZ',['桩号','偏距','X','Y'],('楷体',12),25,self.pmwzDeal)
 
     def pmwzDeal(self,tree,project,engineering,zh1,zh2,side,gongxu,PATH):
 
@@ -1335,7 +1306,6 @@ class APP:
                 print('data',data)
                 SP.write_pingmianweizhi(project.get(),engineering.get(),f'{SP.mileageToStr(ZH1)}-{SP.mileageToStr(ZH2)}',f'({side.get()}){gongxu.get()}',HEAD,data,path,No)
 
-
         except Exception as e:
             messagebox.showerror('错误信息',f'发生错误,{e}，执行失败！！')
         else:
@@ -1345,42 +1315,56 @@ class APP:
 
     ####################################################################
 
-    def Tree(self,top,header,zh1,zh2,side,ping,rw,lj,high,eng,gongxu):
+    def Tree(self,top,header,**kwargs):
         global tree
         global JianCe
         global res
 
-        print('桩号1',zh1.get())
-        print('桩号2',zh2.get())
-        print('频率',ping.get())
-        print('高差',high.get())
-        print('工程',eng.get())
-        print('gongxu',gongxu.get())
+        kwargs={k:kwargs[k].get() for k in kwargs}
+        print('其他',kwargs)
         print('方法',self.fun)
+        zh1=kwargs['zh1']
+        zh2=kwargs['zh2']
+        ping=kwargs['ping']
+        rw=kwargs['rw']
+        lj=kwargs['lj']
+        kwargs.pop('zh1')
+        kwargs.pop('zh2')
+        kwargs.pop('ping')
+        kwargs.pop('rw')
+        kwargs.pop('lj')
 
+        if kwargs['gongcheng'] in ['圆管涵','盖板涵']:
+            pass
+
+        num =1 if ping==0 else int((zh2-zh1)//ping)
+        CDS=[round(zh1+ping*i+ping*random.uniform(0.3,0.8),3) for i in range(num)]
+        
         if 'tree' in globals():
-
-            num=1 if ping.get()==0 else int((zh2.get()-zh1.get())//ping.get())
-            CDS=[round(zh1.get()+ping.get()*i+ping.get()*random.uniform(0.3,0.8),3) for i in range(num)]
-            
-            #zh,rw,LJ,data=[]
-            data=[high.get(),side.get(),eng.get(),gongxu.get()]
             NO=0
             index=0
             for zh in CDS:
-                dd=self.fun(zh,rw.get(),lj.get(),data)
+                dd=self.fun(zh,rw,lj,**kwargs)
                 
                 if dd!=None:
                     k=len(dd)
                     i=0
                     for d in dd:
-                        height=CeLiang.CeLiang(res,d[0],rw.get()).Height(d[1])
-                        point=CeLiang.CeLiang(res,d[0],rw.get()).Point(d[1])
+                        if kwargs['gongcheng'] in self.GC_list['挡墙工程']:
+                            b=CeLiang.CeLiang(res,d[0],rw).side(kwargs['side'])[1]
+                            height=CeLiang.CeLiang(res,d[0],rw).Height(b)[1]+kwargs['high']
+                            point=CeLiang.CeLiang(res,d[0],rw).Point(b)
+                        else:
+                            height=CeLiang.CeLiang(res,d[0],rw).Height(d[1])[1]+kwargs['high']
+                            point=CeLiang.CeLiang(res,d[0],rw).Point(d[1])
                         if d[1]==0:
                             pj='中'
                         else:
                             pj=f'左,{-d[1]}' if d[1]<0 else f'右,{d[1]}'
-                        values=[d[0],pj,f'{point[0]:.4f}',f'{point[1]:.4f}']
+                        if JianCe=='PMWZ':
+                            values=[d[0],pj,f'{point[0]:.4f}',f'{point[1]:.4f}']
+                        elif JianCe=='GCJC':
+                            values=[d[0],pj,f'{height:.3f}']
                         NO=index*k+i
                         tree.item(f'{NO}',values=values) if tree.exists(f'{index*k+i}') else tree.insert('','end',f'{index*k+i}',values=values)
                         i=i+1
@@ -1388,7 +1372,6 @@ class APP:
             for item in tree.get_children()[NO+1:]:
                 if tree.exists(item):
                     tree.delete(item)
-
 
         else:
             tree=ttk.Treeview(show='headings')#show='headings'
@@ -1400,42 +1383,38 @@ class APP:
             for head in header:
                 tree.column(f"{head}", width=80,anchor="center")
                 tree.heading(f"{head}", text=f"{head}")
-
-            num=1 if ping.get()==0 else int((zh2.get()-zh1.get())//ping.get())
-            CDS=[round(zh1.get()+ping.get()*i+ping.get()*random.uniform(0.3,0.8),3) for i in range(num)]
-            
-            #zh,rw,LJ,data=[]
-            data=[high.get(),side.get(),eng.get(),gongxu.get()]
             
             index=0
             for zh in CDS:
-                dd=self.fun(zh,rw.get(),lj.get(),data)
-                
+                dd=self.fun(zh,rw,lj,**kwargs)                
                 if dd!=None:
                     k=len(dd)
                     i=0
                     for d in dd:
-                        height=CeLiang.CeLiang(res,d[0],rw.get()).Height(d[1])
-                        point=CeLiang.CeLiang(res,d[0],rw.get()).Point(d[1])
+                        if kwargs['gongcheng'] in self.GC_list['挡墙工程']:
+                            b=CeLiang.CeLiang(res,d[0],rw).side(kwargs['side'])[1]
+                            height=CeLiang.CeLiang(res,d[0],rw).Height(b)[1]+kwargs['high']
+                            point=CeLiang.CeLiang(res,d[0],rw).Point(b)
+                        else:                        
+                            height=CeLiang.CeLiang(res,d[0],rw).Height(d[1])[1]+kwargs['high']
+                            point=CeLiang.CeLiang(res,d[0],rw).Point(d[1])
                         if d[1]==0:
                             pj='中'
                         else:
                             pj=f'左,{-d[1]}' if d[1]<0 else f'右,{d[1]}'
-                        values=[d[0],pj,f'{point[0]:.4f}',f'{point[1]:.4f}']
+                        if JianCe=='PMWZ':
+                            values=[d[0],pj,f'{point[0]:.4f}',f'{point[1]:.4f}']
+                        elif JianCe=='GCJC':
+                            values=[d[0],pj,f'{height:.3f}']
                         
                         tree.insert('','end',f'{index*k+i}',values=values)
                         
                         i=i+1
-                    index=index+1
-            
-            
+                    index=index+1            
             tree.bind("<Delete>",self.Del)
             tree.bind("<Double-1>",self.edit) 
-
             top.add(tree)
-
-
-
+        
 
     ############################################################
     def Del(self,event):
@@ -1454,7 +1433,7 @@ class APP:
         global show_md
         for item in tree.selection():
             #item = I001
-            print(item)
+            print('id:',item)
             item_text = tree.item(item, "values")
 
             def save(Item):
@@ -1464,9 +1443,8 @@ class APP:
                 tree.update()
                 self.Clear(Pane_mod)
                 show_md=False
-                print(Item)
+                print('id:',Item)
                 
-
             if show_md==False:
                 mods=[]
                 lbs=tree['columns']
@@ -1508,9 +1486,9 @@ class APP:
                     data[0]=values[0]
                     data[1]=values[1]
                     print(JianCe)
-                    if JianCe=='高程检测':
+                    if JianCe=='GCJC':
                         data[2]=H
-                    elif JianCe=='平面位置检测':
+                    elif JianCe=='PMWZ':
                         data[2]=f'{point[0]:.4f}'
                         data[3]=f'{point[1]:.4f}'
 
@@ -1522,15 +1500,13 @@ class APP:
             messagebox.showerror('错误', f'计算失败,发生错误：{e}')
 
     ################################################################
-    @staticmethod
-    def thread_it(func, *args):
-        t = threading.Thread(target=func, args=args) 
-        t.setDaemon(True)   # 守护--就算主界面关闭，线程也会留守后台运行（不对!）
-        t.start()           # 启动
-        # t.join()          # 阻塞--会卡死界面！
+
 
 
 APP()
+
+
+
 
 
     
