@@ -16,13 +16,15 @@ def source_path(relative_path):
 
 class CeLiang:
 
-    def __init__(self,res='res\\RMC', zh=0.0,RW=6.5, zh0=0.0, x0=2921709.275, y0=550115.359, zhe=10581.786, xe=2917071.57167906,
+    def __init__(self,res='res\\RMC', zh0=0.0, x0=2921709.275, y0=550115.359,a=167, zhe=10581.786, xe=2917071.57167906,
                  ye=550689.5888589,ke=2.57254501945588):
         # jd [zh,X,Y,k,α,LS,R,Ls]
         # tpq [p1,q1,β1,T1,L,β2,p2,q2,T2]
         self.res=res
-        self.bp = [zh0, x0, y0, 0, 167, 0, 0, 0]
+        self.bp = [zh0, x0, y0, 0, a, 0, 0, 0]
         self.ep = [zhe, xe, ye,ke]
+    
+    def SET(self,zh,rw):
         self.zh = zh
         self.RWD=RW
         self.JD1 = self.QXCS(zh)[0]
