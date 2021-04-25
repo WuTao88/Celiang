@@ -26,7 +26,7 @@ class CeLiang:
     
     def SET(self,zh,rw):
         self.zh = zh
-        self.RWD=RW
+        self.RWD=rw
         self.JD1 = self.QXCS(zh)[0]
         self.JD2 = self.QXCS(zh)[1]
 

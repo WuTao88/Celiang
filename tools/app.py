@@ -16,7 +16,7 @@ import win32print
 import tempfile
 import win32api
 import pythoncom
-import CeLiang
+from CeLiang import *
 import time
 from natsort import natsorted
 import threading
@@ -36,6 +36,9 @@ RES=source_path('res')
 muban=source_path('muban') 
 
 ################################################################
+ce=CeLiang()
+
+
 class OPTION:
 
     def getBM(zh=0.0,filename=None):
@@ -329,7 +332,7 @@ class SP:
     #衡重式挡墙
     #**kwargs={side:'','tp':'仰斜式挡墙','基坑底']}
     def DQ_PJ(zh,rw,LJ,**kwargs):
-        global res
+        global ce
 
         def getdq(dq):
             return ((kwargs['side'] in dq) and (zh>dq[0] and zh<dq[1]))
@@ -346,7 +349,9 @@ class SP:
         
         H=chicun[0][5]
         print(H)
-        rh=abs(CeLiang.CeLiang(res,zh,rw).side(kwargs['side'])[1])
+        
+        ce.SET(zh,rw)
+        rh=abs(ce.side(kwargs['side'])[1])
         print(rh)
         PJ= SP.DQSIZE(rh,H,kwargs['gongcheng'])[kwargs['gongxu']]
 
@@ -372,8 +377,9 @@ class SP:
     # zh 桩号，rw 道路宽度，LJ 路肩宽度，reHigh 相对设计路面高度。
     #data=[reHigh]
     def TF(zh,rw,LJ,**kwargs):
-        global res
-        wide=CeLiang.CeLiang(res,zh,rw).widen
+        global ce
+        ce.SET(zh,rw)
+        wide=ce.widen
         ex=-kwargs['high']*1.5
         return [[zh,round(wide[0]-ex,3)],[zh,0],[zh,round(wide[1]+ex,3)]]
 
@@ -381,15 +387,17 @@ class SP:
     #data=[reHigh,SIDE]
     def LJ(zh,rw,LJ,**kwargs):
         global res
-        Half=CeLiang.CeLiang(res,zh,rw).side(kwargs['side'])[1]
+        ce.SET(zh,rw)
+        Half=ce.side(kwargs['side'])[1]
         ex=LJ if  kwargs['side']=='右侧' else -LJ
         return [[zh,Half],[zh,round(Half-ex,3)]]
 
     # zh 桩号，rw 道路宽度，LJ 路肩宽度，SIDE 边沟位置，TP 边沟型号，reHigh 设计路面到边沟顶的高度。
     #data=[reHigh,side,TP]
     def BG(zh,rw,LJ,**kwargs):
-        global res
-        Half=CeLiang.CeLiang(res,zh,rw).side(kwargs['side'])[1]
+        global ce
+        ce.SET(zh,rw)
+        Half=ce.side(kwargs['side'])[1]
 
         if 'Ⅰ型' in kwargs['TP']:
             ex=0.65 if kwargs['side']=='右侧' else -0.65
@@ -408,8 +416,9 @@ class SP:
     # zh 桩号，rw 道路宽度，LJ 路肩宽度
     #data=[reHigh]
     def JPSS(zh,rw,LJ,**kwargs):
-        global res
-        wide=CeLiang.CeLiang(res,zh,rw).widen
+        global ce
+        ce.SET(zh,rw)
+        wide=ce.widen
         return [[zh,round(wide[0]+LJ,3)],[zh,0],[zh,round(wide[1]-LJ,3)]]
 
 
@@ -417,16 +426,18 @@ class SP:
     # zh 桩号，rw 道路宽度，LJ 路肩宽度
     #data=[reHigh]
     def SWC(zh,rw,LJ,**kwargs):
-        global res
-        wide=CeLiang.CeLiang(res,zh,rw).widen
+        global ce
+        ce.SET(zh,rw)
+        wide=ce.widen
         return [[zh,round(wide[0]+LJ,3)],[zh,0],[zh,round(wide[1]-LJ,3)]]
         
 
     
     # zh 桩号，rw 道路宽度，LJ 路肩宽度    
     def Other(zh,rw,LJ,**kwargs):
-        global res
-        wide=CeLiang.CeLiang(res,zh,rw).widen
+        global ce
+        ce.SET(zh,rw)
+        wide=ce.widen
         return [[zh,wide[0]],[zh,0],[zh,wide[1]]]
 
     '''
@@ -727,9 +738,11 @@ class APP:
 
         global project
         global res
+        global ce
 
         if project.get() in resources:
             res=RES+'\\'+resources[project.get()]
+            ce=CeLiang(res)
         else:
             res=None
         self.Home()
@@ -1318,7 +1331,7 @@ class APP:
     def Tree(self,top,header,**kwargs):
         global tree
         global JianCe
-        global res
+        global ce
 
         kwargs={k:kwargs[k].get() for k in kwargs}
         print('其他',kwargs)
@@ -1350,13 +1363,15 @@ class APP:
                     k=len(dd)
                     i=0
                     for d in dd:
+                        ce.SET(d[0],rw)
                         if kwargs['gongcheng'] in self.GC_list['挡墙工程']:
-                            b=CeLiang.CeLiang(res,d[0],rw).side(kwargs['side'])[1]
-                            height=CeLiang.CeLiang(res,d[0],rw).Height(b)[1]+kwargs['high']
-                            point=CeLiang.CeLiang(res,d[0],rw).Point(b)
+                            
+                            b=ce.side(kwargs['side'])[1]
+                            height=ce.Height(b)[1]+kwargs['high']
+                            point=ce.Point(b)
                         else:
-                            height=CeLiang.CeLiang(res,d[0],rw).Height(d[1])[1]+kwargs['high']
-                            point=CeLiang.CeLiang(res,d[0],rw).Point(d[1])
+                            height=ce.Height(d[1])[1]+kwargs['high']
+                            point=ce.Point(d[1])
                         if d[1]==0:
                             pj='中'
                         else:
@@ -1391,13 +1406,14 @@ class APP:
                     k=len(dd)
                     i=0
                     for d in dd:
+                        ce.SET(d[0],rw)
                         if kwargs['gongcheng'] in self.GC_list['挡墙工程']:
-                            b=CeLiang.CeLiang(res,d[0],rw).side(kwargs['side'])[1]
-                            height=CeLiang.CeLiang(res,d[0],rw).Height(b)[1]+kwargs['high']
-                            point=CeLiang.CeLiang(res,d[0],rw).Point(b)
+                            b=ce.side(kwargs['side'])[1]
+                            height=ce.Height(b)[1]+kwargs['high']
+                            point=ce.Point(b)
                         else:                        
-                            height=CeLiang.CeLiang(res,d[0],rw).Height(d[1])[1]+kwargs['high']
-                            point=CeLiang.CeLiang(res,d[0],rw).Point(d[1])
+                            height=ce.Height(d[1])[1]+kwargs['high']
+                            point=ce.Point(d[1])
                         if d[1]==0:
                             pj='中'
                         else:
@@ -1464,7 +1480,7 @@ class APP:
     def calculate(self,tree,RW,ReH):
         global JianCe
         
-        global res
+        global ce
         try:
 
             if RW.get()!='' and ReH.get()!='':
@@ -1473,14 +1489,15 @@ class APP:
                 for item in tree.get_children():
                     values=tree.item(item,'values')
                     zh=round(float(values[0]),3)
+                    ce.SET(zh,rw)
                     if '右' in values[1].split(','):
                         pj=round(float(values[1].split(',')[1]),3)
                     elif '左' in values[1].split(','):
                         pj=round(-float(values[1].split(',')[1]),3)
                     else:
                         pj=0
-                    H=round(CeLiang.CeLiang(res,zh,rw).Height(pj)[1]+h0,3)
-                    point=CeLiang.CeLiang(res,zh,rw).Point(pj)
+                    H=round(ce.Height(pj)[1]+h0,3)
+                    point=ce.Point(pj)
 
                     data=['' for i in range(len(tree['columns']))]
                     data[0]=values[0]
